@@ -2032,55 +2032,49 @@ function renderSTLYLog(){
 async function renderSTLY(){
   await loadSTLYData(); // must await — reads from Supabase async
 
-  const titleEl=document.getElementById('stlyTitle');
-  const subEl=document.getElementById('stlySub');
-  const gridEl=document.getElementById('stlyGrid');
-  const importCard=document.getElementById('stlyImportCard');
-  if(!gridEl)return;
+  const titleEl   = document.getElementById('stlyTitle');
+  const subEl     = document.getElementById('stlySub');
+  const gridEl    = document.getElementById('stlyGrid');
+  const importCard= document.getElementById('stlyImportCard');
+  if(!gridEl) return;
 
-  const today=new Date();
-  const pad=n=>String(n).padStart(2,'0');
+  const cur = stlyData.current;
+  const ly  = stlyData.prior;
 
-  // Arrival window = next calendar month
-  let arrYear=today.getFullYear(), arrMonth=today.getMonth()+2;
-  if(arrMonth>12){ arrMonth=1; arrYear++; }
-  const arrMonthName=MONTHS[arrMonth-1];
-  const days=daysInMonth(arrYear,arrMonth);
-  const daysLY=daysInMonth(arrYear-1,arrMonth);
+  // ── Status labels ──────────────────────────────────────────
+  const curStatus = document.getElementById('stlyCurStatus');
+  const lyStatus  = document.getElementById('stlyLyStatus');
 
-  // Update status labels
-  const curStatus=document.getElementById('stlyCurStatus');
-  const lyStatus=document.getElementById('stlyLyStatus');
   if(curStatus){
-    if(stlyData.current){
-      const d=stlyData.current;
-      const rangeStr=d.arrivalFrom&&d.arrivalTo?` · Arrivals ${d.arrivalFrom} → ${d.arrivalTo}`:'';
-      curStatus.textContent=`✓ ${Math.round(d.roomNights)} rm nights, ${fmtMoney(d.totalRevenue)}${rangeStr}`;
-      curStatus.className='sil-status loaded';
+    if(cur){
+      const rangeStr = cur.arrivalFrom&&cur.arrivalTo
+        ? ` · Arrivals ${cur.arrivalFrom} → ${cur.arrivalTo}` : '';
+      curStatus.textContent = `✓ ${Math.round(cur.roomNights)} rm nights, ${fmtMoney(cur.totalRevenue)}${rangeStr}`;
+      curStatus.className = 'sil-status loaded';
     } else {
-      curStatus.textContent='No file loaded — upload Reservations by User report';
-      curStatus.className='sil-status';
+      curStatus.textContent = 'No file loaded — upload Reservations by User report';
+      curStatus.className = 'sil-status';
     }
   }
   if(lyStatus){
-    if(stlyData.prior){
-      const d=stlyData.prior;
-      const rangeStr=d.arrivalFrom&&d.arrivalTo?` · Arrivals ${d.arrivalFrom} → ${d.arrivalTo}`:'';
-      lyStatus.textContent=`✓ ${Math.round(d.roomNights)} rm nights, ${fmtMoney(d.totalRevenue)}${rangeStr}`;
-      lyStatus.className='sil-status loaded';
+    if(ly){
+      const rangeStr = ly.arrivalFrom&&ly.arrivalTo
+        ? ` · Arrivals ${ly.arrivalFrom} → ${ly.arrivalTo}` : '';
+      lyStatus.textContent = `✓ ${Math.round(ly.roomNights)} rm nights, ${fmtMoney(ly.totalRevenue)}${rangeStr}`;
+      lyStatus.className = 'sil-status loaded';
     } else {
-      lyStatus.textContent='No file loaded — upload prior year report';
-      lyStatus.className='sil-status';
+      lyStatus.textContent = 'No file loaded — upload prior year report';
+      lyStatus.className = 'sil-status';
     }
   }
   if(importCard){
-    importCard.classList.toggle('has-data', !!(stlyData.current&&stlyData.prior));
+    importCard.classList.toggle('has-data', !!(cur&&ly));
   }
 
-  // Build subtitle from actual parsed date ranges in the files
+  // ── Subtitle — actual date ranges from files ───────────────
   function dateRangeLabel(data){
     if(!data) return null;
-    const parts=[];
+    const parts = [];
     if(data.createdFrom&&data.createdTo)
       parts.push(`Created ${data.createdFrom} → ${data.createdTo}`);
     if(data.arrivalFrom&&data.arrivalTo)
@@ -2088,57 +2082,92 @@ async function renderSTLY(){
     return parts.join(' · ');
   }
 
-  const curLabel  = dateRangeLabel(stlyData.current);
-  const lyLabel   = dateRangeLabel(stlyData.prior);
-
   if(subEl){
-    if(stlyData.current||stlyData.prior){
-      const lines=[];
-      if(curLabel)  lines.push(`Current year — ${curLabel}`);
-      if(lyLabel)   lines.push(`Prior year — ${lyLabel}`);
+    if(cur||ly){
+      const lines = [];
+      const curLabel = dateRangeLabel(cur);
+      const lyLabel  = dateRangeLabel(ly);
+      if(curLabel) lines.push(`Current — ${curLabel}`);
+      if(lyLabel)  lines.push(`Prior — ${lyLabel}`);
       subEl.textContent = lines.join('  |  ');
     } else {
       subEl.textContent = 'Upload the two Reservations by User reports to populate this section.';
     }
   }
 
-  if(!stlyData.current&&!stlyData.prior){
-    if(titleEl) titleEl.textContent=`${arrMonthName} ${arrYear} Booking Pace — Upload reports above`;
-    gridEl.innerHTML='';
+  // ── No data state ──────────────────────────────────────────
+  if(!cur && !ly){
+    if(titleEl) titleEl.textContent = 'Booking Pace — Upload Reports Above';
+    gridEl.innerHTML = '';
     return;
   }
 
-  // Title — use actual arrival range from files if available
-  const curArrRange = stlyData.current?.arrivalFrom && stlyData.current?.arrivalTo
-    ? `${stlyData.current.arrivalFrom} → ${stlyData.current.arrivalTo}`
-    : stlyData.prior?.arrivalFrom && stlyData.prior?.arrivalTo
-    ? `${stlyData.prior.arrivalFrom} → ${stlyData.prior.arrivalTo}`
-    : `${arrMonthName} ${arrYear} Arrivals`;
+  // ── Title — from actual arrival range in files ─────────────
+  const titleRange = cur?.arrivalFrom && cur?.arrivalTo
+    ? `${cur.arrivalFrom} → ${cur.arrivalTo}`
+    : ly?.arrivalFrom && ly?.arrivalTo
+    ? `${ly.arrivalFrom} → ${ly.arrivalTo}`
+    : 'Arrival Comparison';
 
-  if(titleEl) titleEl.textContent = `Booking Pace — ${curArrRange}`;
+  if(titleEl) titleEl.textContent = `Booking Pace — ${titleRange}`;
 
-  const cur=stlyData.current;
-  const ly=stlyData.prior;
-
-  // Use actual days from parsed arrival range, fall back to calendar month
+  // ── Days in arrival range — from actual file dates ─────────
   function calcDays(data){
-    if(data?.arrivalFrom&&data?.arrivalTo){
-      const from=new Date(data.arrivalFrom);
-      const to=new Date(data.arrivalTo);
-      if(!isNaN(from)&&!isNaN(to)) return Math.round((to-from)/(1000*60*60*24))+1;
+    if(data?.arrivalFrom && data?.arrivalTo){
+      const from = new Date(data.arrivalFrom);
+      const to   = new Date(data.arrivalTo);
+      if(!isNaN(from) && !isNaN(to))
+        return Math.round((to - from) / (1000*60*60*24)) + 1;
     }
-    return arrDays; // fallback to next calendar month
+    return 30; // safe fallback
   }
   const curDays = calcDays(cur);
   const lyDays2 = calcDays(ly);
 
-  // Calculate derived metrics
+  // ── Single-month check ─────────────────────────────────────
+  // Occ and RevPAR are only meaningful when the arrival range
+  // falls within one calendar month — otherwise the denominator
+  // (totalRooms × days) doesn't reflect actual available inventory.
+  function isSingleMonth(data){
+    if(!data?.arrivalFrom || !data?.arrivalTo) return false;
+    const from = new Date(data.arrivalFrom);
+    const to   = new Date(data.arrivalTo);
+    if(isNaN(from) || isNaN(to)) return false;
+    return from.getFullYear()===to.getFullYear() &&
+           from.getMonth()===to.getMonth();
+  }
+  const curSingleMonth = isSingleMonth(cur);
+  const lySingleMonth  = isSingleMonth(ly);
+
+  // For single-month reports use totalRooms × daysInMonth as denominator
+  function getRevParDays(data, isSingle){
+    if(!isSingle) return null; // suppress for multi-month
+    if(!data?.arrivalFrom) return null;
+    const d = new Date(data.arrivalFrom);
+    return totalRooms ? totalRooms * daysInMonth(d.getFullYear(), d.getMonth()+1) : null;
+  }
+  const curRevParDenom = getRevParDays(cur, curSingleMonth);
+  const lyRevParDenom  = getRevParDays(ly,  lySingleMonth);
+
+  // ── Calculate derived metrics ──────────────────────────────
   const curADR    = cur&&cur.roomNights>0 ? cur.totalRevenue/cur.roomNights : null;
   const lyADR     = ly&&ly.roomNights>0   ? ly.totalRevenue/ly.roomNights   : null;
-  const curRevPAR = cur&&totalRooms ? cur.totalRevenue/(totalRooms*curDays)  : null;
-  const lyRevPAR  = ly&&totalRooms  ? ly.totalRevenue/(totalRooms*lyDays2)   : null;
-  const curOcc    = cur&&totalRooms ? (cur.roomNights/(totalRooms*curDays))*100 : null;
-  const lyOcc     = ly&&totalRooms  ? (ly.roomNights/(totalRooms*lyDays2))*100  : null;
+
+  // RevPAR — single month only
+  const curRevPAR = cur&&curRevParDenom ? cur.totalRevenue/curRevParDenom : null;
+  const lyRevPAR  = ly&&lyRevParDenom   ? ly.totalRevenue/lyRevParDenom   : null;
+
+  // Occupancy — single month only
+  const curOcc = cur&&curRevParDenom ? (cur.roomNights/curRevParDenom)*100 : null;
+  const lyOcc  = ly&&lyRevParDenom   ? (ly.roomNights/lyRevParDenom)*100   : null;
+
+  // Label for Occ/RevPAR cells
+  const singleMonthLabel = curSingleMonth && cur?.arrivalFrom
+    ? (() => { const d=new Date(cur.arrivalFrom); return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`; })()
+    : null;
+  const multiMonthNote = !curSingleMonth
+    ? 'Multi-month range — set room count per month for accuracy'
+    : null;
 
   function stlyVar(c,l){
     if(c===null||c===undefined||!l)return null;
@@ -2167,11 +2196,24 @@ async function renderSTLY(){
       fmtMoney)+
     stlyCell('ADR (Revenue ÷ Rm Nights)',
       curADR, lyADR, fmtMoney2)+
-    stlyCell(`Occupancy (${totalRooms?totalRooms+'rms × '+curDays+'d':'set room count'})`,
-      curOcc, lyOcc,
-      n=>n.toFixed(1)+'%')+
-    stlyCell(`RevPAR (Rev ÷ ${totalRooms||'?'}rms × ${curDays}d)`,
-      curRevPAR, lyRevPAR, fmtMoney2)+
+    (curSingleMonth || lySingleMonth
+      ? stlyCell(`Occupancy (${totalRooms||'?'}rms × ${singleMonthLabel||'month'})`,
+          curOcc, lyOcc, n=>n.toFixed(1)+'%')
+      : `<div class="stly-cell">
+          <div class="sc-label">Occupancy</div>
+          <div class="sc-cur" style="color:var(--ink-soft);font-size:0.8rem;">—</div>
+          <div class="sc-ly" style="font-size:0.72rem;color:var(--ink-xsoft);">Not shown for multi-month arrival ranges</div>
+          <div class="sc-var flat"></div>
+        </div>`)+
+    (curSingleMonth || lySingleMonth
+      ? stlyCell(`RevPAR (${totalRooms||'?'}rms × ${singleMonthLabel||'month'})`,
+          curRevPAR, lyRevPAR, fmtMoney2)
+      : `<div class="stly-cell">
+          <div class="sc-label">RevPAR</div>
+          <div class="sc-cur" style="color:var(--ink-soft);font-size:0.8rem;">—</div>
+          <div class="sc-ly" style="font-size:0.72rem;color:var(--ink-xsoft);">Not shown for multi-month arrival ranges</div>
+          <div class="sc-var flat"></div>
+        </div>`)+
     (()=>{
       // Pace % = current rev on books vs LY rev on books
       const v=stlyVar(cur?cur.totalRevenue:null, ly?ly.totalRevenue:null);
@@ -2195,10 +2237,10 @@ function handleSTLYFile(file, slot){
       stlyData[slot]=parsed;
       saveSTLYData();
 
-      // Determine arrival month from the data context
+      // Use actual arrival month from parsed file
       const today=new Date();
-      let arrYear=today.getFullYear(), arrMonth=today.getMonth()+2;
-      if(arrMonth>12){ arrMonth=1; arrYear++; }
+      const arrMonth = parsed.arrivalMonth || (today.getMonth()+2 > 12 ? 1 : today.getMonth()+2);
+      const arrYear  = parsed.arrivalYear  || (today.getMonth()+2 > 12 ? today.getFullYear()+1 : today.getFullYear());
 
       // Log the upload
       addSTLYLogEntry(slot, file.name, parsed, arrMonth, arrYear);
@@ -3600,9 +3642,9 @@ document.getElementById('stlyCurrentFile2')?.addEventListener('change', async ev
     stlyData.current=parsed;
     await saveSTLYData();
     const today=new Date();
-    let arrYear=today.getFullYear(), arrMonth=today.getMonth()+2;
-    if(arrMonth>12){arrMonth=1;arrYear++;}
-    await addSTLYLogEntry('current', file.name, parsed, arrMonth, arrYear);
+    const arrMonthCur = parsed.arrivalMonth || (today.getMonth()+2 > 12 ? 1 : today.getMonth()+2);
+    const arrYearCur  = parsed.arrivalYear  || (today.getMonth()+2 > 12 ? today.getFullYear()+1 : today.getFullYear());
+    await addSTLYLogEntry('current', file.name, parsed, arrMonthCur, arrYearCur);
     renderSTLYLog();
     renderSTLYLog2();
     renderSTLY(); // async — fire and forget
@@ -3625,9 +3667,9 @@ document.getElementById('stlyPriorFile2')?.addEventListener('change', async ev=>
     stlyData.prior=parsed;
     await saveSTLYData();
     const today=new Date();
-    let arrYear=today.getFullYear(), arrMonth=today.getMonth()+2;
-    if(arrMonth>12){arrMonth=1;arrYear++;}
-    await addSTLYLogEntry('prior', file.name, parsed, arrMonth, arrYear);
+    const arrMonthPri = parsed.arrivalMonth || (today.getMonth()+2 > 12 ? 1 : today.getMonth()+2);
+    const arrYearPri  = parsed.arrivalYear  || (today.getMonth()+2 > 12 ? today.getFullYear()+1 : today.getFullYear());
+    await addSTLYLogEntry('prior', file.name, parsed, arrMonthPri, arrYearPri);
     renderSTLYLog();
     renderSTLYLog2();
     renderSTLY(); // async — fire and forget
