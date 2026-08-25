@@ -2124,50 +2124,16 @@ async function renderSTLY(){
   const curDays = calcDays(cur);
   const lyDays2 = calcDays(ly);
 
-  // ── Single-month check ─────────────────────────────────────
-  // Occ and RevPAR are only meaningful when the arrival range
-  // falls within one calendar month — otherwise the denominator
-  // (totalRooms × days) doesn't reflect actual available inventory.
-  function isSingleMonth(data){
-    if(!data?.arrivalFrom || !data?.arrivalTo) return false;
-    const from = new Date(data.arrivalFrom);
-    const to   = new Date(data.arrivalTo);
-    if(isNaN(from) || isNaN(to)) return false;
-    return from.getFullYear()===to.getFullYear() &&
-           from.getMonth()===to.getMonth();
-  }
-  const curSingleMonth = isSingleMonth(cur);
-  const lySingleMonth  = isSingleMonth(ly);
-
-  // For single-month reports use totalRooms × daysInMonth as denominator
-  function getRevParDays(data, isSingle){
-    if(!isSingle) return null; // suppress for multi-month
-    if(!data?.arrivalFrom) return null;
-    const d = new Date(data.arrivalFrom);
-    return totalRooms ? totalRooms * daysInMonth(d.getFullYear(), d.getMonth()+1) : null;
-  }
-  const curRevParDenom = getRevParDays(cur, curSingleMonth);
-  const lyRevParDenom  = getRevParDays(ly,  lySingleMonth);
-
   // ── Calculate derived metrics ──────────────────────────────
+  // RevPAR = Revenue ÷ (rooms × days in arrival range)
+  // Occ    = Room Nights ÷ (rooms × days in arrival range)
+  // ADR    = Revenue ÷ Room Nights
   const curADR    = cur&&cur.roomNights>0 ? cur.totalRevenue/cur.roomNights : null;
   const lyADR     = ly&&ly.roomNights>0   ? ly.totalRevenue/ly.roomNights   : null;
-
-  // RevPAR — single month only
-  const curRevPAR = cur&&curRevParDenom ? cur.totalRevenue/curRevParDenom : null;
-  const lyRevPAR  = ly&&lyRevParDenom   ? ly.totalRevenue/lyRevParDenom   : null;
-
-  // Occupancy — single month only
-  const curOcc = cur&&curRevParDenom ? (cur.roomNights/curRevParDenom)*100 : null;
-  const lyOcc  = ly&&lyRevParDenom   ? (ly.roomNights/lyRevParDenom)*100   : null;
-
-  // Label for Occ/RevPAR cells
-  const singleMonthLabel = curSingleMonth && cur?.arrivalFrom
-    ? (() => { const d=new Date(cur.arrivalFrom); return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`; })()
-    : null;
-  const multiMonthNote = !curSingleMonth
-    ? 'Multi-month range — set room count per month for accuracy'
-    : null;
+  const curRevPAR = cur&&totalRooms ? cur.totalRevenue/(totalRooms*curDays)  : null;
+  const lyRevPAR  = ly&&totalRooms  ? ly.totalRevenue/(totalRooms*lyDays2)   : null;
+  const curOcc    = cur&&totalRooms ? (cur.roomNights/(totalRooms*curDays))*100 : null;
+  const lyOcc     = ly&&totalRooms  ? (ly.roomNights/(totalRooms*lyDays2))*100  : null;
 
   function stlyVar(c,l){
     if(c===null||c===undefined||!l)return null;
@@ -2196,24 +2162,10 @@ async function renderSTLY(){
       fmtMoney)+
     stlyCell('ADR (Revenue ÷ Rm Nights)',
       curADR, lyADR, fmtMoney2)+
-    (curSingleMonth || lySingleMonth
-      ? stlyCell(`Occupancy (${totalRooms||'?'}rms × ${singleMonthLabel||'month'})`,
-          curOcc, lyOcc, n=>n.toFixed(1)+'%')
-      : `<div class="stly-cell">
-          <div class="sc-label">Occupancy</div>
-          <div class="sc-cur" style="color:var(--ink-soft);font-size:0.8rem;">—</div>
-          <div class="sc-ly" style="font-size:0.72rem;color:var(--ink-xsoft);">Not shown for multi-month arrival ranges</div>
-          <div class="sc-var flat"></div>
-        </div>`)+
-    (curSingleMonth || lySingleMonth
-      ? stlyCell(`RevPAR (${totalRooms||'?'}rms × ${singleMonthLabel||'month'})`,
-          curRevPAR, lyRevPAR, fmtMoney2)
-      : `<div class="stly-cell">
-          <div class="sc-label">RevPAR</div>
-          <div class="sc-cur" style="color:var(--ink-soft);font-size:0.8rem;">—</div>
-          <div class="sc-ly" style="font-size:0.72rem;color:var(--ink-xsoft);">Not shown for multi-month arrival ranges</div>
-          <div class="sc-var flat"></div>
-        </div>`)+
+    stlyCell(`Occupancy (${totalRooms||'?'}rms × ${curDays}d arrival window)`,
+      curOcc, lyOcc, n=>n.toFixed(1)+'%')+
+    stlyCell(`RevPAR (${totalRooms||'?'}rms × ${curDays}d arrival window)`,
+      curRevPAR, lyRevPAR, fmtMoney2)+
     (()=>{
       // Pace % = current rev on books vs LY rev on books
       const v=stlyVar(cur?cur.totalRevenue:null, ly?ly.totalRevenue:null);
