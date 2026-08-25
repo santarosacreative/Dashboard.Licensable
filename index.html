@@ -303,7 +303,7 @@ canvas{max-height:240px;}
 .stly-log-header button{font-size:0.65rem;padding:3px 8px;background:none;border:1px solid var(--line);color:var(--ink-soft);border-radius:4px;}
 .stly-log-header button:hover{border-color:var(--bad);color:var(--bad);background:var(--red-soft);}
 .stly-log-empty{padding:10px 14px;font-size:0.75rem;color:var(--ink-soft);}
-.stly-log-row{display:grid;grid-template-columns:90px 1fr 90px 90px 90px 90px 60px;gap:0;border-bottom:1px solid var(--line);font-size:0.72rem;}
+.stly-log-row{display:grid;grid-template-columns:90px 1fr 90px 160px 90px 90px 60px;gap:0;border-bottom:1px solid var(--line);font-size:0.72rem;}
 .stly-log-row:last-child{border-bottom:none;}
 .stly-log-row.hdr{background:#FAFBFC;font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-soft);}
 .stly-log-row > div{padding:7px 10px;border-right:1px solid var(--line);}
@@ -1968,6 +1968,11 @@ async function addSTLYLogEntry(slot, filename, data, arrivalMonth, arrivalYear){
     uploadedAt:   new Date().toISOString(),
     arrivalMonth,
     arrivalYear,
+    // Store actual date ranges from parsed file
+    arrivalFrom:  data.arrivalFrom  || null,
+    arrivalTo:    data.arrivalTo    || null,
+    createdFrom:  data.createdFrom  || null,
+    createdTo:    data.createdTo    || null,
     roomNights:   data.roomNights,
     totalRevenue: data.totalRevenue
   };
@@ -2006,7 +2011,13 @@ function renderSTLYLog(){
       <div title="${dateStr} ${timeStr}">${dateStr}</div>
       <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${entry.filename||''}">${entry.filename||'—'}</div>
       <div><span class="stly-log-tag ${entry.slot==='current'?'cy':'py'}">${entry.slot==='current'?'Current Yr':'Prior Yr'}</span></div>
-      <div>${entry.arrivalMonth?MONTHS[entry.arrivalMonth-1]+' '+(entry.arrivalYear||''):'—'}</div>
+      <div style="font-size:0.7rem;">${
+        entry.arrivalFrom && entry.arrivalTo
+          ? entry.arrivalFrom + ' → ' + entry.arrivalTo
+          : entry.arrivalMonth
+          ? MONTHS[entry.arrivalMonth-1]+' '+(entry.arrivalYear||'')
+          : '—'
+      }</div>
       <div class="num">${Math.round(entry.roomNights).toLocaleString()}</div>
       <div class="num">${fmtMoney(entry.totalRevenue)} <span style="font-size:0.65rem;color:var(--ink-soft);">ADR ${adr}</span></div>
       <div><button class="stly-log-del" data-logid="${entry.id}" title="Remove this entry">✕</button></div>
@@ -3668,7 +3679,13 @@ function renderSTLYLog2(){
       <div>${dateStr}</div>
       <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${entry.filename||''}">${entry.filename||'—'}</div>
       <div><span class="stly-log-tag ${entry.slot==='current'?'cy':'py'}">${entry.slot==='current'?'Current Yr':'Prior Yr'}</span></div>
-      <div>${entry.arrivalMonth?MONTHS[entry.arrivalMonth-1]+' '+(entry.arrivalYear||''):'—'}</div>
+      <div style="font-size:0.7rem;">${
+        entry.arrivalFrom && entry.arrivalTo
+          ? entry.arrivalFrom + ' → ' + entry.arrivalTo
+          : entry.arrivalMonth
+          ? MONTHS[entry.arrivalMonth-1]+' '+(entry.arrivalYear||'')
+          : '—'
+      }</div>
       <div class="num">${Math.round(entry.roomNights).toLocaleString()}</div>
       <div class="num">${fmtMoney(entry.totalRevenue)} <span style="font-size:0.65rem;color:var(--ink-soft);">ADR ${adr}</span></div>
       <div><button class="stly-log-del" data-logid2="${entry.id}" title="Remove">✕</button></div>
